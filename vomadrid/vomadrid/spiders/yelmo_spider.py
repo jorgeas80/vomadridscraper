@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
-import urllib
 import json
-from scrapy.xlib.pydispatch import dispatcher
-from scrapy import signals
 
 
 class YelmoSpider(scrapy.Spider):

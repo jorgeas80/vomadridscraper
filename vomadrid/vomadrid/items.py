@@ -19,4 +19,5 @@ class VomadridItem(scrapy.Item):
     movie_director = scrapy.Field()
     movie_actors = scrapy.Field()
     movie_country = scrapy.Field()
+    movie_rating = scrapy.Field()
     movie_showtimes = scrapy.Field()
