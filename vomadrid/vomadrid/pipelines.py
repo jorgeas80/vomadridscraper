@@ -40,9 +40,25 @@ class MongoPipeline(object):
         # Does the item already exist?
         query = {'movie_id': item['movie_id']}
 
+        #import ipdb;ipdb.set_trace()
+
         doc = self.db[self.collection_name].find_one(query)
         if doc:
-            raise DropItem("Duplicated item found: %s" % item)
+
+            # Do I need to merge?
+            if doc["spiders_used"] and spider.name not in doc["spiders_used"]:
+
+                # Just add new values or update the empty ones
+                sets = {key: unicode(item[key]) for key in item.keys() if key not in doc or not doc[key]}
+                sets["movie_showtimes"] = doc["movie_showtimes"] + item["movie_showtimes"]
+                sets["spiders_used"] = doc["spiders_used"] + [spider.name]
+
+                # Update
+                self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
+
+            else:
+                raise DropItem("Duplicated item found: %s" % item)
         else:
+            item["spiders_used"] = [spider.name]
             self.db[self.collection_name].insert(dict(item))
             return item

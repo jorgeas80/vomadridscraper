@@ -11,7 +11,7 @@ class YelmoSpider(scrapy.Spider):
     name = 'yelmo'
     handle_httpstatus_list = [400, 500]
     start_urls = [
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/yelmo/yelmo_sample.json"
+        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/yelmo_sample.json"
     ]
 
     def __init__(self, mongodb_uri='', mongodb_name=''):
@@ -45,7 +45,6 @@ class YelmoSpider(scrapy.Spider):
         try:
             data = json.loads(response.body)
 
-
             # We are interested in the second element of the array (VO theatre)
             yelmo_data = data['d']['Cinemas'][1]
 
@@ -55,34 +54,33 @@ class YelmoSpider(scrapy.Spider):
             # Let's read stuff
             for movie in yelmo_movies:
 
-                # TODO: Find the movie in mongodb, if exists, to update it
-
                 # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
                 movie_id = movie["Title"].replace(" ", "").lower()
 
                 movie_title = movie["Title"]
                 movie_original_title = movie["OriginalTitle"]
                 movie_runtime = movie["RunTime"]
-                movie_rating = movie["Rating"]
+                movie_rating = movie["RatingDescription"]
                 movie_plot = movie["Synopsis"]
 
                 # Store the image in base64
+                movie_poster = ""
+                """
                 if movie["Poster"]:
                     response = requests.get(movie["Poster"])
                     movie_poster = ("data:" +
                                     response.headers['Content-Type'] + ";" +
                                     "base64," + base64.b64encode(response.content))
-                else:
-                    movie_poster = ""
+                """
 
                 # Store the showtimes
                 movie_showtimes = []
                 for showtime in movie["Formats"][0]["Showtimes"]:
-                    movie_showtimes.append(showtime["Time"])
-
-
-                #import ipdb; ipdb.set_trace()
-
+                    movie_showtimes.append({
+                        "time": showtime["Time"],
+                        "screennumber": showtime["Screen"],
+                        "buytickets": "" # TODO: Complete the showtime, including url to buy tickets, if possible
+                    })
 
 
                 # Store the element in MongoDB
@@ -95,11 +93,12 @@ class YelmoSpider(scrapy.Spider):
                 item["movie_rating"] = unicode(movie_rating)
                 item["movie_plot"] = unicode(movie_plot)
                 item["movie_poster"] = movie_poster
-                item["movie_showtimes"] = movie_showtimes
+                item["movie_showtimes"] = [{"yelmo": movie_showtimes}]
 
                 yield item
 
 
-        except KeyError as error:
+        except Exception as error:
+            # TODO: Log this!!
             yield None
 
