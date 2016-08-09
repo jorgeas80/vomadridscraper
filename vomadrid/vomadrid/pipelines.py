@@ -40,8 +40,6 @@ class MongoPipeline(object):
         # Does the item already exist?
         query = {'movie_id': item['movie_id']}
 
-        #import ipdb;ipdb.set_trace()
-
         doc = self.db[self.collection_name].find_one(query)
         if doc:
 
@@ -55,6 +53,8 @@ class MongoPipeline(object):
 
                 # Update
                 self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
+
+                return item
 
             else:
                 raise DropItem("Duplicated item found: %s" % item)
