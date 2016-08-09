@@ -23,12 +23,13 @@ class CinesaSpider(scrapy.Spider):
         try:
             data = json.loads(response.body)
 
+            # TODO: Check if there are more cinemas with VOSE movies
             cinesa_movies = data["cartelera"][0]["peliculas"]
 
             # Let's read stuff
             for movie in cinesa_movies:
                 # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                movie_id = movie["titulo"].replace(" ", "").lower()
+                movie_id = unicode(movie["titulo"].replace(" ", "").lower())
 
                 movie_title = movie["titulo"]
                 movie_runtime = movie["duracion"]
@@ -54,6 +55,8 @@ class CinesaSpider(scrapy.Spider):
                         for screen in sessions["salas"]:
                             for session in screen["sesiones"]:
                                 movie_showtimes.append({
+                                    "cinema_name": "Cinesa Manoteras", # TODO: Not just this cinema!!
+                                    "gmaps_url": "https://goo.gl/maps/cN3nke4j9Mz",
                                     "time": session["hora"],
                                     "screennumber": screen["sala"],
                                     "buytickets": session["ao"]

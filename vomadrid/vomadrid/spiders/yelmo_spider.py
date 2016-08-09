@@ -46,6 +46,7 @@ class YelmoSpider(scrapy.Spider):
             data = json.loads(response.body)
 
             # We are interested in the second element of the array (VO theatre)
+            # TODO: Other theatres have VOSE too!!
             yelmo_data = data['d']['Cinemas'][1]
 
             # Inside that element, we want the movies for today (position 0)
@@ -55,7 +56,7 @@ class YelmoSpider(scrapy.Spider):
             for movie in yelmo_movies:
 
                 # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                movie_id = movie["Title"].replace(" ", "").lower()
+                movie_id = unicode(movie["Title"].replace(" ", "").lower())
 
                 movie_title = movie["Title"]
                 movie_original_title = movie["OriginalTitle"]
@@ -77,9 +78,12 @@ class YelmoSpider(scrapy.Spider):
                 movie_showtimes = []
                 for showtime in movie["Formats"][0]["Showtimes"]:
                     movie_showtimes.append({
+                        "cinema_name": "Yelmo Cines Ideal", # TODO: Not just this cinema!! (see line 49)
+                        "gmaps_url": "https://goo.gl/maps/VnubJJuy6c62",
                         "time": showtime["Time"],
                         "screennumber": showtime["Screen"],
-                        "buytickets": "" # TODO: Complete the showtime, including url to buy tickets, if possible
+                        # TODO: Add google analytics code, if possible
+                        "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionid={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
                     })
 
 
