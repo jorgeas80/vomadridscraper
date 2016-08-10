@@ -44,7 +44,7 @@ class MongoPipeline(object):
         if doc:
 
             # Do I need to merge?
-            if doc["spiders_used"] and spider.name not in doc["spiders_used"]:
+            if spider.name not in doc["spiders_used"]:
 
                 # Just add new values or update the empty ones
                 sets = {key: unicode(item[key]) for key in item.keys() if key not in doc or not doc[key]}
@@ -55,6 +55,17 @@ class MongoPipeline(object):
                 self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
 
                 return item
+
+            # Cinesa needs 2 steps, one for cinema
+            elif spider.name == "cinesa":
+
+                # We just add the movie_showtimes to the existent ones
+                sets = {
+                    "movie_showtimes": doc["movie_showtimes"] + item["movie_showtimes"]
+                }
+
+                # Update
+                self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
 
             else:
                 raise DropItem("Duplicated item found: %s" % item)

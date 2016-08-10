@@ -12,8 +12,15 @@ class CinesaSpider(scrapy.Spider):
     start_urls = [
         # Manoteras
         #"http://www.cinesa.es/Cines/Horarios/1052/28000?_=1470677476792",
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample.json"
+        #"http://www.cinesa.es/Cines/Horarios/236/28000?_=1470826484751"
+        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample.json",
+        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample2.json"
     ]
+
+    cinesa_movies_with_vo = {
+        "Manoteras": "https://goo.gl/maps/cN3nke4j9Mz",
+        "Las Rozas Heron City": "https://goo.gl/maps/ARxtBW1sW812"
+    }
 
     def __init__(self, mongodb_uri='', mongodb_name=''):
         self.mongodb_uri = mongodb_uri
@@ -23,7 +30,7 @@ class CinesaSpider(scrapy.Spider):
         try:
             data = json.loads(response.body)
 
-            # TODO: Check if there are more cinemas with VOSE movies
+            # Movies for TODAY
             cinesa_movies = data["cartelera"][0]["peliculas"]
 
             # Let's read stuff
@@ -55,27 +62,34 @@ class CinesaSpider(scrapy.Spider):
                         for screen in sessions["salas"]:
                             for session in screen["sesiones"]:
                                 movie_showtimes.append({
-                                    "cinema_name": "Cinesa Manoteras", # TODO: Not just this cinema!!
-                                    "gmaps_url": "https://goo.gl/maps/cN3nke4j9Mz",
+                                    "cinema_name": movie["cines"][0]["cine"],
+                                    "gmaps_url": self.cinesa_movies_with_vo[movie["cines"][0]["cine"]],
                                     "time": session["hora"],
                                     "screennumber": screen["sala"],
                                     "buytickets": session["ao"]
                                 })
 
-                # Store the element in MongoDB
-                item = VomadridItem()
-                item["movie_id"] = movie_id
-                item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                item["movie_title"] = unicode(movie_title)
-                item["movie_runtime"] = unicode(movie_runtime)
-                item["movie_rating"] = unicode(movie_rating)
-                item["movie_gender"] = unicode(movie_gender)
-                item["movie_director"] = unicode(movie_director)
-                item["movie_actors"] = unicode(movie_actors)
-                item["movie_poster"] = movie_poster
-                item["movie_showtimes"] = [{"cinesa": movie_showtimes}]
+                # Just yield a new item if there are available showtimes
+                if movie_showtimes:
 
-                yield item
+                    # Store the element in MongoDB
+                    item = VomadridItem()
+                    item["movie_id"] = movie_id
+                    item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
+                    item["movie_title"] = unicode(movie_title)
+                    item["movie_runtime"] = unicode(movie_runtime)
+                    item["movie_rating"] = unicode(movie_rating)
+                    item["movie_gender"] = unicode(movie_gender)
+                    item["movie_director"] = unicode(movie_director)
+                    item["movie_actors"] = unicode(movie_actors)
+                    item["movie_poster"] = movie_poster
+                    item["movie_showtimes"] = [{"cinesa": movie_showtimes}]
+
+                    yield item
+
+                else:
+                    yield None
+                    
         except Exception as error:
             # TODO: Log this!!
             yield None
