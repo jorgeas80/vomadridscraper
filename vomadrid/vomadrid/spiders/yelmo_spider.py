@@ -91,7 +91,7 @@ class YelmoSpider(scrapy.Spider):
                                     "time": showtime["Time"],
                                     "screennumber": showtime["Screen"],
                                     # TODO: Add google analytics code, if possible
-                                    "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionid={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
+                                    "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionId={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
                                 })
 
                     # Just yield a new item if there are available showtimes

@@ -56,8 +56,8 @@ class MongoPipeline(object):
 
                 return item
 
-            # Cinesa needs 2 steps, one for cinema
-            elif spider.name == "cinesa":
+            # Cinesa needs 2 steps, one per cinema
+            else:
 
                 # We just add the movie_showtimes to the existent ones
                 sets = {
@@ -67,8 +67,10 @@ class MongoPipeline(object):
                 # Update
                 self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
 
+            """
             else:
                 raise DropItem("Duplicated item found: %s" % item)
+            """
         else:
             item["spiders_used"] = [spider.name]
             self.db[self.collection_name].insert(dict(item))
