@@ -86,7 +86,7 @@ class RenoirSpider(scrapy.Spider):
 
                 yield item
         except Exception as error:
-            # TODO: Log this!!
+            self.logger.exception(error)
             yield None
 
 
