@@ -43,7 +43,7 @@ class MongoPipeline(object):
         doc = self.db[self.collection_name].find_one(query)
         if doc:
 
-            # Do I need to merge?
+            # New spider. Need to add just new data
             if spider.name not in doc["spiders_used"]:
 
                 # Just add new values or update the empty ones
@@ -56,10 +56,8 @@ class MongoPipeline(object):
 
                 return item
 
-            # Cinesa needs 2 steps, one per cinema
+            # We just add the movie_showtimes to the existent ones
             else:
-
-                # We just add the movie_showtimes to the existent ones
                 sets = {
                     "movie_showtimes": doc["movie_showtimes"] + item["movie_showtimes"]
                 }

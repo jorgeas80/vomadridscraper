@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import json
+import re
+from pytz import timezone
+from datetime import datetime
+import unicodedata
 import base64
 import requests
 from datetime import datetime
@@ -49,73 +53,95 @@ class YelmoSpider(scrapy.Spider):
 
         try:
             data = json.loads(response.body)
+            madrid = timezone('Europe/Madrid')
 
             # There are two yelmo cinemas with VO movies
             for pos, name, gmaps_url in self.yelmo_cinemas_with_vo:
 
                 yelmo_data = data['d']['Cinemas'][pos]
 
-                # Inside that element, we want the movies for today (position 0)
-                yelmo_movies = yelmo_data["Dates"][0]["Movies"]
+                # Inside that element, we want the movies for saturday, because it's the most complete day. There are:
+                # - Matinee sessions (before 15:00)
+                # - Late night sessions (00:00 or later)
+                for dt in yelmo_data["Dates"]:
 
-                # Let's read stuff
-                for movie in yelmo_movies:
+                    epoch_text = dt["FilterDate"] # i.e.: "/Date(1470718800000)/"
 
-                    # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                    movie_id = unicode(movie["Title"].replace(" ", "").lower())
+                    # Extract just the epoch part
+                    m = re.search("/Date\((.+?)\)/", epoch_text)
+                    n = m.group(1)
 
-                    movie_title = movie["Title"]
-                    movie_original_title = movie["OriginalTitle"]
-                    movie_runtime = movie["RunTime"]
-                    movie_rating = movie["RatingDescription"]
-                    movie_plot = movie["Synopsis"]
+                    # The epoch ts is prepared for JS. So, in Python, we need to divide by 1000: http://goo.gl/AWYnNy
+                    ts = datetime.fromtimestamp(int(n) / 1000, tz=madrid)
 
-                    # Store the image in base64
-                    movie_poster = ""
-                    """
-                    if movie["Poster"]:
-                        response = requests.get(movie["Poster"])
-                        movie_poster = ("data:" +
-                                        response.headers['Content-Type'] + ";" +
-                                        "base64," + base64.b64encode(response.content))
-                    """
+                    # Check if ts is Saturday
+                    if ts.weekday() != 5:
+                        continue
 
-                    # Store the showtimes
-                    movie_showtimes = []
-                    for format in movie["Formats"]:
-                        if format["Language"].upper() == "VOSE":
-                            for showtime in format["Showtimes"]:
-                                movie_showtimes.append({
-                                    "cinema_name": name,
-                                    "gmaps_url": gmaps_url,
-                                    "time": showtime["Time"],
-                                    "screennumber": showtime["Screen"],
-                                    # TODO: Add google analytics code, if possible
-                                    "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionId={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
-                                })
+                    # Saturday. Let's get the movies
+                    yelmo_movies = dt["Movies"]
 
-                    # Just yield a new item if there are available showtimes
-                    if movie_showtimes:
+                    # Let's read stuff
+                    for movie in yelmo_movies:
 
-                        # Store the element in MongoDB
-                        item = VomadridItem()
-                        item["movie_id"] = movie_id
-                        item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                        item["movie_title"] = unicode(movie_title)
-                        item["movie_original_title"] = unicode(movie_original_title)
-                        item["movie_runtime"] = unicode(movie_runtime)
-                        item["movie_rating"] = unicode(movie_rating)
-                        item["movie_plot"] = unicode(movie_plot)
-                        item["movie_poster"] = movie_poster
-                        item["movie_showtimes"] = [{"yelmo": movie_showtimes}]
+                        # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
+                        movie_id = unicode(movie["Title"].replace(" ", "").lower())
 
-                        yield item
+                        # Replace accents, if they exist
+                        movie_id = ''.join(
+                            (c for c in unicodedata.normalize('NFD', movie_id) if unicodedata.category(c) != 'Mn'))
 
-                    else:
-                        yield None
+                        movie_title = movie["Title"]
+                        movie_original_title = movie["OriginalTitle"]
+                        movie_runtime = movie["RunTime"]
+                        movie_rating = movie["RatingDescription"]
+                        movie_plot = movie["Synopsis"]
+
+                        # Store the image in base64
+                        movie_poster = ""
+                        if movie["Poster"]:
+                            response = requests.get(movie["Poster"])
+                            movie_poster = ("data:" +
+                                            response.headers['Content-Type'] + ";" +
+                                            "base64," + base64.b64encode(response.content))
+
+
+                        # Store the showtimes
+                        movie_showtimes = []
+                        for format in movie["Formats"]:
+                            if format["Language"].upper() == "VOSE":
+                                for showtime in format["Showtimes"]:
+                                    movie_showtimes.append({
+                                        "cinema_name": name,
+                                        "gmaps_url": gmaps_url,
+                                        "time": showtime["Time"],
+                                        "screennumber": showtime["Screen"],
+                                        # TODO: Add google analytics code, if possible
+                                        "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionId={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
+                                    })
+
+                        # Just yield a new item if there are available showtimes
+                        if movie_showtimes:
+
+                            # Store the element in MongoDB
+                            item = VomadridItem()
+                            item["movie_id"] = movie_id
+                            item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
+                            item["movie_title"] = unicode(movie_title)
+                            item["movie_original_title"] = unicode(movie_original_title)
+                            item["movie_runtime"] = unicode(movie_runtime)
+                            item["movie_rating"] = unicode(movie_rating)
+                            item["movie_plot"] = unicode(movie_plot)
+                            item["movie_poster"] = movie_poster
+                            item["movie_showtimes"] = [{"yelmo": movie_showtimes}]
+
+                            yield item
+
+                        else:
+                            yield None
 
 
         except Exception as error:
-            # TODO: Log this!!
+            self.logger.exception(error)
             yield None
 
