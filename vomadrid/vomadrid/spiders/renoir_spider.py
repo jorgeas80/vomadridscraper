@@ -4,6 +4,7 @@ import json
 import base64
 import requests
 from datetime import datetime
+import unicodedata
 from vomadrid.items import VomadridItem
 
 class RenoirSpider(scrapy.Spider):
@@ -36,19 +37,43 @@ class RenoirSpider(scrapy.Spider):
                 # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
                 movie_id = title.replace(" ", "").lower()
 
+                # Replace accents, if they exist
+                movie_id = ''.join(
+                    (c for c in unicodedata.normalize('NFD', movie_id) if unicodedata.category(c) != 'Mn'))
+
                 movie_title = title
 
-                # Store the showtimes
+                # Look for showtimes in the saturday. It's the most complete day. It has:
+                # - Matinee sessions (before 15:00)
+                # - Late night sessions (00:00 or later)
                 movie_showtimes = []
+
                 for cinema, showtimes in cinemas.items():
-                    for showtime in showtimes[today_str]:
-                        movie_showtimes.append({
-                            "cinema_name": unicode(cinema),
-                            "gmaps_url": self.gmaps_urls[unicode(cinema)],
-                            "time": showtime[0],
-                            "screennumber": "",
-                            "buytickets": "http://www.pillalas.com/pase/{}".format(showtime[1])
-                        })
+
+                    saturday = None
+
+                    # Look for saturday
+                    for day in showtimes.keys():
+
+                        # Just get the saturday
+                        ts = datetime.strptime(day, "%Y-%m-%d")
+
+                        # Check if ts is Saturday
+                        if ts.weekday() == 5:
+                            saturday = day
+                            break
+
+                    # Found it! Get showtimes
+                    if saturday:
+
+                        for showtime in showtimes[saturday]:
+                            movie_showtimes.append({
+                                "cinema_name": unicode(cinema),
+                                "gmaps_url": self.gmaps_urls[unicode(cinema)],
+                                "time": showtime[0],
+                                "screennumber": "",
+                                "buytickets": "http://www.pillalas.com/pase/{}".format(showtime[1])
+                            })
 
 
 
