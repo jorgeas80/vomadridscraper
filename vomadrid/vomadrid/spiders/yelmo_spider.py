@@ -24,9 +24,15 @@ class YelmoSpider(scrapy.Spider):
         ("Yelmo Cines Plaza Norte II", "https://goo.gl/maps/HbDffXyFXGR2")
     ]
 
-    def __init__(self, mongodb_uri='', mongodb_name=''):
+    def __init__(self, mongodb_uri='', mongodb_name='', fb_apikey='', fb_authDomain='', fb_databaseUrl='', fb_storageBucket='', fb_user='', fb_password=''):
         self.mongodb_uri = mongodb_uri
         self.mongodb_name = mongodb_name
+        self.fb_apikey = fb_apikey
+        self.fb_authDomain = fb_authDomain
+        self.fb_databaseUrl = fb_databaseUrl
+        self.fb_storageBucket = fb_storageBucket
+        self.fb_user = fb_user
+        self.fb_password = fb_password
 
     def start_requests(self):
         payload = "{'cityKey':'madrid'}"

@@ -17,10 +17,10 @@ runner = CrawlerRunner()
 
 @defer.inlineCallbacks
 def crawl():
-    yield runner.crawl(KinepolisSpider)
     yield runner.crawl(CinesaSpider)
     yield runner.crawl(YelmoSpider)
     yield runner.crawl(RenoirSpider)
+    # yield runner.crawl(KinepolisSpider)
     reactor.stop()
 
 crawl()

@@ -46,10 +46,6 @@ class MongoPipeline(object):
                 sets["movie_showtimes"] = doc["movie_showtimes"] + item["movie_showtimes"]
                 sets["spiders_used"] = doc["spiders_used"] + [spider.name]
 
-                # Update
-                self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
-
-                return item
 
             # We just add the movie_showtimes to the existent ones
             else:
@@ -57,8 +53,8 @@ class MongoPipeline(object):
                     "movie_showtimes": doc["movie_showtimes"] + item["movie_showtimes"]
                 }
 
-                # Update
-                self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
+            # Update
+            self.db[self.collection_name].update_one({"_id": doc["_id"]}, {"$set": sets})
 
             """
             else:
@@ -67,4 +63,5 @@ class MongoPipeline(object):
         else:
             item["spiders_used"] = [spider.name]
             self.db[self.collection_name].insert(dict(item))
-            return item
+
+        return item
