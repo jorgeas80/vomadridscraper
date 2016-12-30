@@ -104,7 +104,10 @@ class YelmoSpider(scrapy.Spider):
                         # Store the image in base64
                         movie_poster = ""
                         if movie["Poster"]:
-                            movie_poster = base64.b64encode(urllib.request.urlopen(movie["Poster"]).read())
+                            response = requests.get(movie["Poster"])
+                            movie_poster = ("data:" +
+                                response.headers['Content-Type'] + ";" +
+                                "base64," + base64.b64encode(urllib.request.urlopen(movie["Poster"]).read()).decode('utf-8'))
 
                         # Store the showtimes
                         movie_showtimes = []

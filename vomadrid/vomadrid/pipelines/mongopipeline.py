@@ -42,7 +42,7 @@ class MongoPipeline(object):
             if spider.name not in doc["spiders_used"]:
 
                 # Just add new values or update the empty ones
-                sets = {key: unicode(item[key]) for key in item.keys() if key not in doc or not doc[key]}
+                sets = {key: item[key] for key in item.keys() if key not in doc or not doc[key]}
                 sets["movie_showtimes"] = doc["movie_showtimes"] + item["movie_showtimes"]
                 sets["spiders_used"] = doc["spiders_used"] + [spider.name]
 

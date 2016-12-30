@@ -65,7 +65,11 @@ class CinesaSpider(scrapy.Spider):
                     # Store the image in base64
                     movie_poster = ""
                     if movie["cartel"]:
-                        movie_poster = base64.b64encode(urllib.request.urlopen(movie["cartel"]).read())
+                        response = requests.get(movie["cartel"])
+                        movie_poster = ("data:" +
+                                        response.headers['Content-Type'] + ";" +
+                                        "base64," + base64.b64encode(
+                            urllib.request.urlopen(movie["cartel"]).read()).decode('utf-8'))
 
                     # Store the showtimes
                     movie_showtimes = []
