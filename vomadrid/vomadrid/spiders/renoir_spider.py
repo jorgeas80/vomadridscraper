@@ -12,8 +12,8 @@ class RenoirSpider(scrapy.Spider):
     handle_httpstatus_list = [400, 500]
 
     start_urls = [
-        #"http://www.cinesrenoir.com/pillalas/?ciudad=MAD",
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/renoir_sample.json"
+        "http://www.cinesrenoir.com/pillalas/?ciudad=MAD",
+        #"https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/renoir_sample.json"
     ]
 
     gmaps_urls = {

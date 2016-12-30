@@ -12,10 +12,10 @@ class CinesaSpider(scrapy.Spider):
     handle_httpstatus_list = [400, 500]
     start_urls = [
         # Manoteras and las rozas heron city
-        #"http://www.cinesa.es/Cines/Horarios/1052/28000?_=1470677476792",
-        #"http://www.cinesa.es/Cines/Horarios/236/28000?_=1470826484751"
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample.json",
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample2.json"
+        "http://www.cinesa.es/Cines/Horarios/1052/28000?_=1470677476792",
+        "http://www.cinesa.es/Cines/Horarios/236/28000?_=1470826484751"
+        #"https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample.json",
+        #"https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/cinesa_sample2.json"
     ]
 
     cinesa_movies_with_vo = {
