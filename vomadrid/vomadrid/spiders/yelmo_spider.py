@@ -14,20 +14,20 @@ from vomadrid.items import VomadridItem
 class YelmoSpider(scrapy.Spider):
     name = 'yelmo'
     handle_httpstatus_list = [400, 500]
-    start_urls = [
-        "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/yelmo_sample.json"
-    ]
+    # start_urls = [
+    #     "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/yelmo_sample.json"
+    # ]
 
     yelmo_cinemas_with_vo = [
-        (1, "Yelmo Cines Ideal", "https://goo.gl/maps/VnubJJuy6c62"),
-        (6, "Yelmo Cines Plaza Norte II", "https://goo.gl/maps/HbDffXyFXGR2")
+        ("Yelmo Cines Ideal", "https://goo.gl/maps/VnubJJuy6c62"),
+        ("Yelmo Cines Plaza Norte II", "https://goo.gl/maps/HbDffXyFXGR2")
     ]
 
     def __init__(self, mongodb_uri='', mongodb_name=''):
         self.mongodb_uri = mongodb_uri
         self.mongodb_name = mongodb_name
 
-    """def start_requests(self):
+    def start_requests(self):
         payload = "{'cityKey':'madrid'}"
         url = 'http://www.yelmocines.es/now-playing.aspx/GetNowPlaying'
         headers = {
@@ -47,7 +47,7 @@ class YelmoSpider(scrapy.Spider):
             headers=headers,
             body=payload)
         '''
-    """
+
 
     def parse(self, response):
 
@@ -55,8 +55,11 @@ class YelmoSpider(scrapy.Spider):
             data = json.loads(response.body)
             madrid = timezone('Europe/Madrid')
 
-            # There are two yelmo cinemas with VO movies
-            for pos, name, gmaps_url in self.yelmo_cinemas_with_vo:
+            # There are two yelmo cinemas with VO movies: Yelmo Cines Ideal and
+            for name, gmaps_url in self.yelmo_cinemas_with_vo:
+
+                # Get the name's position in the Cinemas array
+                pos = next(index for (index, d) in enumerate(data['d']['Cinemas']) if "Name" in d and d["Name"] == name)
 
                 yelmo_data = data['d']['Cinemas'][pos]
 
