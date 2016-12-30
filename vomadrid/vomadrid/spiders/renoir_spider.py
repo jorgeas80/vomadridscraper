@@ -27,12 +27,12 @@ class RenoirSpider(scrapy.Spider):
     def parse(self, response):
         try:
 
-            data = json.loads(response.body)
+            data = json.loads(response.body.decode('utf-8'))
             today_str = datetime.now().date().strftime("%Y-%m-%d")
 
             for movie, cinemas in data.items():
                 # Get rid of the "V.O..." part
-                title = unicode(movie.split(" V.O")[0])
+                title = movie.split(" V.O")[0]
 
                 # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
                 movie_id = title.replace(" ", "").lower()
@@ -68,8 +68,8 @@ class RenoirSpider(scrapy.Spider):
 
                         for showtime in showtimes[saturday]:
                             movie_showtimes.append({
-                                "cinema_name": unicode(cinema),
-                                "gmaps_url": self.gmaps_urls[unicode(cinema)],
+                                "cinema_name": cinema,
+                                "gmaps_url": self.gmaps_urls[cinema],
                                 "time": showtime[0],
                                 "screennumber": "",
                                 "buytickets": "http://www.pillalas.com/pase/{}".format(showtime[1])
@@ -81,7 +81,7 @@ class RenoirSpider(scrapy.Spider):
                 item = VomadridItem()
                 item["movie_id"] = movie_id
                 item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                item["movie_title"] = unicode(movie_title)
+                item["movie_title"] = movie_title
                 item["movie_showtimes"] = [{"renoir": movie_showtimes}]
 
                 yield item

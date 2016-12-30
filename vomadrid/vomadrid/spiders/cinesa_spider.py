@@ -3,6 +3,7 @@ import scrapy
 import json
 import base64
 import requests
+import urllib
 import unicodedata
 from datetime import datetime
 from vomadrid.items import VomadridItem
@@ -29,7 +30,7 @@ class CinesaSpider(scrapy.Spider):
 
     def parse(self, response):
         try:
-            data = json.loads(response.body)
+            data = json.loads(response.body.decode('utf-8'))
 
             # We want movies for Saturday. It's the most complete day. It has:
             # - Matinee sessions (before 15:00)
@@ -48,7 +49,7 @@ class CinesaSpider(scrapy.Spider):
                 # Let's read stuff
                 for movie in cinesa_movies:
                     # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                    movie_id = unicode(movie["titulo"].replace(" ", "").lower())
+                    movie_id = movie["titulo"].replace(" ", "").lower()
 
                     # Replace accents, if they exist
                     movie_id = ''.join(
@@ -64,10 +65,7 @@ class CinesaSpider(scrapy.Spider):
                     # Store the image in base64
                     movie_poster = ""
                     if movie["cartel"]:
-                        response = requests.get(movie["cartel"])
-                        movie_poster = ("data:" +
-                                        response.headers['Content-Type'] + ";" +
-                                        "base64," + base64.b64encode(response.content))
+                        movie_poster = base64.b64encode(urllib.request.urlopen(movie["cartel"]).read())
 
                     # Store the showtimes
                     movie_showtimes = []
@@ -90,12 +88,12 @@ class CinesaSpider(scrapy.Spider):
                         item = VomadridItem()
                         item["movie_id"] = movie_id
                         item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                        item["movie_title"] = unicode(movie_title)
-                        item["movie_runtime"] = unicode(movie_runtime)
-                        item["movie_rating"] = unicode(movie_rating)
-                        item["movie_gender"] = unicode(movie_gender)
-                        item["movie_director"] = unicode(movie_director)
-                        item["movie_actors"] = unicode(movie_actors)
+                        item["movie_title"] = movie_title
+                        item["movie_runtime"] = movie_runtime
+                        item["movie_rating"] = movie_rating
+                        item["movie_gender"] = movie_gender
+                        item["movie_director"] = movie_director
+                        item["movie_actors"] = movie_actors
                         item["movie_poster"] = movie_poster
                         item["movie_showtimes"] = [{"cinesa": movie_showtimes}]
 

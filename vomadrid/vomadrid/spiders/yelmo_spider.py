@@ -7,6 +7,7 @@ from datetime import datetime
 import unicodedata
 import base64
 import requests
+import urllib
 from datetime import datetime
 from vomadrid.items import VomadridItem
 
@@ -52,7 +53,7 @@ class YelmoSpider(scrapy.Spider):
     def parse(self, response):
 
         try:
-            data = json.loads(response.body)
+            data = json.loads(response.body.decode('utf-8'))
             madrid = timezone('Europe/Madrid')
 
             # There are two yelmo cinemas with VO movies: Yelmo Cines Ideal and
@@ -88,7 +89,7 @@ class YelmoSpider(scrapy.Spider):
                     for movie in yelmo_movies:
 
                         # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                        movie_id = unicode(movie["Title"].replace(" ", "").lower())
+                        movie_id = movie["Title"].replace(" ", "").lower()
 
                         # Replace accents, if they exist
                         movie_id = ''.join(
@@ -103,11 +104,7 @@ class YelmoSpider(scrapy.Spider):
                         # Store the image in base64
                         movie_poster = ""
                         if movie["Poster"]:
-                            response = requests.get(movie["Poster"])
-                            movie_poster = ("data:" +
-                                            response.headers['Content-Type'] + ";" +
-                                            "base64," + base64.b64encode(response.content))
-
+                            movie_poster = base64.b64encode(urllib.request.urlopen(movie["Poster"]).read())
 
                         # Store the showtimes
                         movie_showtimes = []
@@ -130,11 +127,11 @@ class YelmoSpider(scrapy.Spider):
                             item = VomadridItem()
                             item["movie_id"] = movie_id
                             item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                            item["movie_title"] = unicode(movie_title)
-                            item["movie_original_title"] = unicode(movie_original_title)
-                            item["movie_runtime"] = unicode(movie_runtime)
-                            item["movie_rating"] = unicode(movie_rating)
-                            item["movie_plot"] = unicode(movie_plot)
+                            item["movie_title"] = movie_title
+                            item["movie_original_title"] = movie_original_title
+                            item["movie_runtime"] = movie_runtime
+                            item["movie_rating"] = movie_rating
+                            item["movie_plot"] = movie_plot
                             item["movie_poster"] = movie_poster
                             item["movie_showtimes"] = [{"yelmo": movie_showtimes}]
 
