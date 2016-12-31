@@ -8,8 +8,6 @@ import pyrebase
 
 class FirebasePipeline(object):
 
-    collection_name = 'vomovies'
-
     def __init__(self, fb_apikey, fb_authDomain, fb_databaseUrl, fb_storageBucket, fb_user, fb_password):
         self.fb_apikey = fb_apikey
         self.fb_authDomain = fb_authDomain
