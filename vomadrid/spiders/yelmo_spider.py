@@ -14,14 +14,6 @@ from vomadrid.items import VomadridItem
 class YelmoSpider(scrapy.Spider):
     name = 'yelmo'
     handle_httpstatus_list = [400, 500]
-    # start_urls = [
-    #     "https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/yelmo_sample.json"
-    # ]
-
-    yelmo_cinemas_with_vo = [
-        ("Yelmo Cines Ideal", "https://goo.gl/maps/VnubJJuy6c62"),
-        ("Yelmo Cines Plaza Norte II", "https://goo.gl/maps/HbDffXyFXGR2")
-    ]
 
     def __init__(self, mongodb_uri='', mongodb_name=''):
         self.mongodb_uri = mongodb_uri
@@ -50,101 +42,110 @@ class YelmoSpider(scrapy.Spider):
 
 
     def parse(self, response):
+        madrid = timezone('Europe/Madrid')
 
+        # Try to load data
         try:
             data = json.loads(response.body)
-            madrid = timezone('Europe/Madrid')
+        except ValueError as e:
+            self.logger.exception(e)
+            yield None
 
-            # There are two yelmo cinemas with VO movies: Yelmo Cines Ideal and
-            for name, gmaps_url in self.yelmo_cinemas_with_vo:
+        # Security checks
+        if "d" not in data:
+            yield None
 
-                # Get the name's position in the Cinemas array
-                pos = next(index for (index, d) in enumerate(data['d']['Cinemas']) if "Name" in d and d["Name"] == name)
+        if "Cinemas" not in data["d"]:
+            yield None
 
-                yelmo_data = data['d']['Cinemas'][pos]
+        # The dict is indexed by cinemas, not by movies. So, we build a dict
+        # indexed by movies first
+        movies_dict = {}
 
-                # Inside that element, we want the movies for saturday, because it's the most complete day. There are:
-                # - Matinee sessions (before 15:00)
-                # - Late night sessions (00:00 or later)
-                for dt in yelmo_data["Dates"]:
+        # Loop over theatres
+        for movie_theatre_dict in data["d"]["Cinemas"]:
 
+            try:
+                cinema_name = movie_theatre_dict["Name"]
+
+                # For each theatre, we loop over dates
+                for dt in movie_theatre_dict["Dates"]:
+
+                    # Extract date from epoch time
                     epoch_text = dt["FilterDate"] # i.e.: "/Date(1470718800000)/"
 
                     # Extract just the epoch part
                     m = re.search("/Date\((.+?)\)/", epoch_text)
-                    n = m.group(1)
+                    g = m.group(1)
 
                     # The epoch ts is prepared for JS. So, in Python, we need to divide by 1000: http://goo.gl/AWYnNy
-                    ts = datetime.fromtimestamp(int(n) / 1000, tz=madrid)
+                    ts = datetime.fromtimestamp(int(g) / 1000, tz=madrid)
+                    date_str = ts.date().strftime("%Y-%m-%d")
 
-                    # Check if ts is Saturday
-                    if ts.weekday() != 5:
-                        continue
-
-                    # Saturday. Let's get the movies
-                    yelmo_movies = dt["Movies"]
-
-                    # Let's read stuff
-                    for movie in yelmo_movies:
-
-                        # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                        movie_id = unicode(movie["Title"].replace(" ", "").lower())
-
-                        # Replace accents, if they exist
+                    # And for each date, we loop over movie
+                    for movie in dt["Movies"]:
+                        original_title = unicode(movie["Title"]).title()
+                        movie_id = original_title.replace(" ", "").lower()
                         movie_id = ''.join(
                             (c for c in unicodedata.normalize('NFD', movie_id) if unicodedata.category(c) != 'Mn'))
 
-                        movie_title = movie["Title"]
-                        movie_original_title = movie["OriginalTitle"]
-                        movie_runtime = movie["RunTime"]
-                        movie_rating = movie["RatingDescription"]
-                        movie_plot = movie["Synopsis"]
+                        # Does the movie already exist in the dict?
+                        if movie_id not in movies_dict:
+                            movies_dict[movie_id] = {}
 
-                        # Store the image in base64
-                        movie_poster = ""
-                        if movie["Poster"]:
-                            response = requests.get(movie["Poster"])
-                            movie_poster = ("data:" +
-                                            response.headers['Content-Type'] + ";" +
-                                            "base64," + base64.b64encode(response.content))
+                            movies_dict[movie_id]["movie_title"] = original_title
+                            movies_dict[movie_id]["movie_original_title"] = movie["OriginalTitle"]
+                            movies_dict[movie_id]["movie_age_rating"] = movie["Rating"]
+                            movies_dict[movie_id]["movie_duration"] = movie["RunTime"]
+                            movies_dict[movie_id]["movie_plot"] = movie["Synopsis"]
 
+                            movie_poster = ""
+                            if movie["Poster"]:
+                                img_response = requests.get(movie["Poster"])
+                                movie_poster = ("data:" +
+                                                img_response.headers['Content-Type'] + ";" +
+                                                "base64," + base64.b64encode(img_response.content))
 
-                        # Store the showtimes
-                        movie_showtimes = []
-                        for format in movie["Formats"]:
-                            if format["Language"].upper() == "VOSE":
-                                for showtime in format["Showtimes"]:
-                                    movie_showtimes.append({
-                                        "cinema_name": name,
-                                        "gmaps_url": gmaps_url,
-                                        "time": showtime["Time"],
-                                        "screennumber": showtime["Screen"],
-                                        # TODO: Add google analytics code, if possible
-                                        "buytickets": "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionId={}".format(showtime["VistaCinemaId"], showtime["ShowtimeId"])
-                                    })
+                            movies_dict[movie_id]["movie_poster"] = movie_poster
 
-                        # Just yield a new item if there are available showtimes
-                        if movie_showtimes:
+                            movies_dict[movie_id]["movie_showtimes"] = {}
 
-                            # Store the element in MongoDB
-                            item = VomadridItem()
-                            item["movie_id"] = movie_id
-                            item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                            item["movie_title"] = unicode(movie_title)
-                            item["movie_original_title"] = unicode(movie_original_title)
-                            item["movie_runtime"] = unicode(movie_runtime)
-                            item["movie_rating"] = unicode(movie_rating)
-                            item["movie_plot"] = unicode(movie_plot)
-                            item["movie_poster"] = movie_poster
-                            item["movie_showtimes"] = [{"yelmo": movie_showtimes}]
+                        # Showtimes!
+                        if movie["Formats"][0]["Language"] == "VOSE":
 
-                            yield item
+                            if cinema_name not in movies_dict[movie_id]["movie_showtimes"].keys():
+                                movies_dict[movie_id]["movie_showtimes"][cinema_name] = {}
 
-                        else:
-                            yield None
+                            for session in movie["Formats"][0]["Showtimes"]:
+                                session_item = {}
+                                session_item["screennumber"] = session["Screen"]
+                                session_item["time"] = session["Time"]
+                                session_item["buytickets"] = "http://inetvis.yelmocines.es/compra/visSelectTickets.aspx?cinemacode={}&txtSessionId={}".format(session["VistaCinemaId"], session["ShowtimeId"])
 
+                                if date_str not in movies_dict[movie_id]["movie_showtimes"][cinema_name]:
+                                    movies_dict[movie_id]["movie_showtimes"][cinema_name][date_str] = []
 
-        except Exception as error:
-            self.logger.exception(error)
-            yield None
+                                movies_dict[movie_id]["movie_showtimes"][cinema_name][date_str].append(session_item)
 
+            except Exception as e:
+                self.logger.exception(e)
+
+        # Now we can loop over the movies array and yield each movie
+        for movie_id, movie_data in movies_dict.items():
+            item = VomadridItem()
+            item["movie_id"] = movie_id
+
+            item["movie_date_added"] = movie_data[
+                "movie_date_added"] if "movie_date_added" in movie_data else ""
+            item["movie_title"] = movie_data["movie_title"] if "movie_title" in movie_data else ""
+            item["movie_runtime"] = movie_data["movie_runtime"] if "movie_runtime" in movie_data else ""
+            item["movie_rating"] = movie_data["movie_rating"] if "movie_rating" in movie_data else ""
+            item["movie_age_rating"] = movie_data[
+                "movie_age_rating"] if "movie_age_rating" in movie_data else ""
+            item["movie_gender"] = movie_data["movie_gender"] if "movie_gender" in movie_data else ""
+            item["movie_director"] = movie_data["movie_director"] if "movie_director" in movie_data else ""
+            item["movie_actors"] = movie_data["movie_actors"] if "movie_actors" in movie_data else ""
+            item["movie_poster"] = movie_data["movie_poster"] if "movie_poster" in movie_data else ""
+            item["movie_showtimes"] = movie_data["movie_showtimes"] if "movie_showtimes" in movie_data else []
+
+            yield item

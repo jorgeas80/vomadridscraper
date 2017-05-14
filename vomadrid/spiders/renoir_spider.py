@@ -13,80 +13,69 @@ class RenoirSpider(scrapy.Spider):
 
     start_urls = [
         "http://www.cinesrenoir.com/pillalas/?ciudad=MAD",
-        #"https://dl.dropboxusercontent.com/u/6599273/scraping/vomadrid/renoir_sample.json"
     ]
 
-    gmaps_urls = {
-        "Cines Retiro": "https://goo.gl/maps/95j1q3iTf4R2",
-        u"Renoir Plaza de España": "https://goo.gl/maps/95j1q3iTf4R2",
-        "Cines Princesa": "https://goo.gl/maps/EkGu1qaP3cP2"
-    }
-
-
+    def __init__(self, mongodb_uri='', mongodb_name=''):
+        self.mongodb_uri = mongodb_uri
+        self.mongodb_name = mongodb_name
 
     def parse(self, response):
+        today_str = datetime.now().date().strftime("%Y-%m-%d")
+
+        # Load JSON data, if possible
         try:
-
             data = json.loads(response.body)
-            today_str = datetime.now().date().strftime("%Y-%m-%d")
+        except ValueError as e:
+            self.logger.exception(e)
+            yield None
 
-            for movie, cinemas in data.items():
+        # Now get data from the JSON read
+        for movie, cinemas in data.items():
+
+            try:
+                movie_showtimes = {}
+
                 # Get rid of the "V.O..." part
-                title = unicode(movie.split(" V.O")[0])
+                movie_title = unicode(movie.split(" V.O")[0]).title()
 
-                # In case the movie doesn't exist yet, we create a new register. For movie id, use the title without spaces and lowercase
-                movie_id = title.replace(" ", "").lower()
-
-                # Replace accents, if they exist
+                # Normalize title
+                movie_id = movie_title.replace(" ", "").lower()
                 movie_id = ''.join(
                     (c for c in unicodedata.normalize('NFD', movie_id) if unicodedata.category(c) != 'Mn'))
 
-                movie_title = title
-
-                # Look for showtimes in the saturday. It's the most complete day. It has:
-                # - Matinee sessions (before 15:00)
-                # - Late night sessions (00:00 or later)
-                movie_showtimes = []
-
                 for cinema, showtimes in cinemas.items():
 
-                    saturday = None
+                        if cinema not in movie_showtimes.keys():
+                            movie_showtimes[cinema] = {}
 
-                    # Look for saturday
-                    for day in showtimes.keys():
+                        for day, array_sessions in showtimes.items():
 
-                        # Just get the saturday
-                        ts = datetime.strptime(day, "%Y-%m-%d")
+                            if day not in movie_showtimes[cinema].keys():
+                                movie_showtimes[cinema][day] = []
 
-                        # Check if ts is Saturday
-                        if ts.weekday() == 5:
-                            saturday = day
-                            break
+                                for session in array_sessions:
+                                    if isinstance(session, list) and len(session) >= 2:
+                                        movie_showtimes[cinema][day].append({
+                                            "time": session[0],
+                                            "buytickets": "http://www.pillalas.com/pase/{}".format(session[1])
+                                        })
 
-                    # Found it! Get showtimes
-                    if saturday:
+                # movie_item = {
+                #     movie_id: {
+                #         "movie_title": movie_title,
+                #         "movie_date_added": today_str,
+                #         "movie_showtimes": movie_showtimes
+                #     }
+                # }
 
-                        for showtime in showtimes[saturday]:
-                            movie_showtimes.append({
-                                "cinema_name": unicode(cinema),
-                                "gmaps_url": self.gmaps_urls[unicode(cinema)],
-                                "time": showtime[0],
-                                "screennumber": "",
-                                "buytickets": "http://www.pillalas.com/pase/{}".format(showtime[1])
-                            })
+                movie_item = VomadridItem()
+                movie_item["movie_id"] = movie_id
+                movie_item["movie_title"] = movie_title
+                movie_item["movie_date_added"] = today_str
+                movie_item["movie_showtimes"] = movie_showtimes
 
+                yield movie_item
 
-
-                # Store the element in MongoDB
-                item = VomadridItem()
-                item["movie_id"] = movie_id
-                item["movie_date_added"] = datetime.now().date().strftime("%Y-%m-%d")
-                item["movie_title"] = unicode(movie_title)
-                item["movie_showtimes"] = [{"renoir": movie_showtimes}]
-
-                yield item
-        except Exception as error:
-            self.logger.exception(error)
-            yield None
-
-
+            except Exception as e:
+                self.logger.exception(e)
+                yield None
