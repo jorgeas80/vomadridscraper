@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import scrapy
 import json
 import base64
@@ -15,9 +14,16 @@ class RenoirSpider(scrapy.Spider):
         "http://www.cinesrenoir.com/pillalas/?ciudad=MAD",
     ]
 
-    def __init__(self, mongodb_uri='', mongodb_name=''):
+    def __init__(self, mongodb_uri='', mongodb_name='', fb_apikey='', fb_authDomain='', fb_databaseUrl='',
+                 fb_storageBucket='', fb_user='', fb_password=''):
         self.mongodb_uri = mongodb_uri
         self.mongodb_name = mongodb_name
+        self.fb_apikey = fb_apikey
+        self.fb_authDomain = fb_authDomain
+        self.fb_databaseUrl = fb_databaseUrl
+        self.fb_storageBucket = fb_storageBucket
+        self.fb_user = fb_user
+        self.fb_password = fb_password
 
     def parse(self, response):
         today_str = datetime.now().date().strftime("%Y-%m-%d")
@@ -36,7 +42,7 @@ class RenoirSpider(scrapy.Spider):
                 movie_showtimes = {}
 
                 # Get rid of the "V.O..." part
-                movie_title = unicode(movie.split(" V.O")[0]).title()
+                movie_title = movie.split(" V.O")[0].title()
 
                 # Normalize title
                 movie_id = movie_title.replace(" ", "").lower()

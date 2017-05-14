@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import scrapy
 import json
 import re
@@ -15,9 +14,16 @@ class YelmoSpider(scrapy.Spider):
     name = 'yelmo'
     handle_httpstatus_list = [400, 500]
 
-    def __init__(self, mongodb_uri='', mongodb_name=''):
+    def __init__(self, mongodb_uri='', mongodb_name='', fb_apikey='', fb_authDomain='', fb_databaseUrl='',
+                 fb_storageBucket='', fb_user='', fb_password=''):
         self.mongodb_uri = mongodb_uri
         self.mongodb_name = mongodb_name
+        self.fb_apikey = fb_apikey
+        self.fb_authDomain = fb_authDomain
+        self.fb_databaseUrl = fb_databaseUrl
+        self.fb_storageBucket = fb_storageBucket
+        self.fb_user = fb_user
+        self.fb_password = fb_password
 
     def start_requests(self):
         payload = "{'cityKey':'madrid'}"
@@ -46,7 +52,7 @@ class YelmoSpider(scrapy.Spider):
 
         # Try to load data
         try:
-            data = json.loads(response.body)
+            data = json.loads(response.body.decode('utf-8'))
         except ValueError as e:
             self.logger.exception(e)
             yield None
@@ -84,7 +90,7 @@ class YelmoSpider(scrapy.Spider):
 
                     # And for each date, we loop over movie
                     for movie in dt["Movies"]:
-                        original_title = unicode(movie["Title"]).title()
+                        original_title = movie["Title"].title()
                         movie_id = original_title.replace(" ", "").lower()
                         movie_id = ''.join(
                             (c for c in unicodedata.normalize('NFD', movie_id) if unicodedata.category(c) != 'Mn'))
